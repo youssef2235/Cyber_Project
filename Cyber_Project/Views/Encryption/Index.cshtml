@@ -1,78 +1,294 @@
 ﻿@{
-    ViewData["Title"] = "Symmetric Encryption";
+    ViewData["Title"] = "نظام التشفير";
 }
 
-<div class="container" dir="rtl">
-    <h1 class="mb-4">تشفير وفك تشفير النصوص</h1>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    @if (TempData["ErrorMessage"] != null)
-    {
-        <div class="alert alert-danger">
-            @TempData["ErrorMessage"]
-        </div>
-    }
+<link rel="stylesheet" href="~/css/Index.css" />
 
-    <div class="row">
-        <div class="col-md-6">
-            <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h3 class="card-title mb-0">تشفير النصوص</h3>
-                </div>
-                <div class="card-body">
-                    <form asp-action="Encrypt" method="post">
-                        <div class="mb-3">
-                            <label for="plainText" class="form-label">النص المراد تشفيره</label>
-                            <textarea id="plainText" name="plainText" class="form-control" rows="5" required></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label for="seed" class="form-label">seed لإنشاء المفتاح (يجب تذكرها لفك التشفير)</label>
-                            <input type="number" id="seed" name="seed" class="form-control" required
-                                   value="@(new Random().Next(10000, 99999))" />
-                        </div>
-                        <button type="submit" class="btn btn-primary">تشفير</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header bg-success text-white">
-                    <h3 class="card-title mb-0">فك تشفير النصوص</h3>
-                </div>
-                <div class="card-body">
-                    <form asp-action="Decrypt" method="post">
-                        <div class="mb-3">
-                            <label for="cipherText" class="form-label">النص المشفر</label>
-                            <textarea id="cipherText" name="cipherText" class="form-control" rows="5" required></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label for="decryptSeed" class="form-label"> ال (seed) المستخدمة في التشفير</label>
-                            <input type="number" id="decryptSeed" name="seed" class="form-control" required />
-                        </div>
-                        <button type="submit" class="btn btn-success">فك التشفير</button>
-                    </form>
-                </div>
-            </div>
-        </div>
+<div class="encryption-container">
+    <div class="header">
+        <h1><i class="fas fa-lock"></i> نظام التشفير المتقدم</h1>
+        <p>تشفير وفك تشفير النصوص باستخدام CBC و SHA-1 مع توليد مفاتيح LCG</p>
     </div>
 
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header bg-info text-white">
-                    <h3 class="card-title mb-0">معلومات حول الخوارزمية</h3>
+    <div class="content rtl">
+        <div class="algorithm-info">
+            <div class="mb-2"><strong>حول الخوارزميات المستخدمة:</strong></div>
+            <div><span class="info-badge">SHA-1</span> خوارزمية تشفير أحادية الاتجاه تنتج قيمة هاش بطول 160 بت (غير قابلة لفك التشفير)</div>
+            <div><span class="info-badge">CBC</span> وضع تشغيل لخوارزمية تشفير متماثلة مع توليد مفتاح باستخدام LCG</div>
+            <div><span class="info-badge">LCG</span> مولد خطي متكرر يستخدم لتوليد المفاتيح التلقائية</div>
+        </div>
+
+        <div class="form-group mb-4">
+            <label for="encryptionType">اختر نوع التشفير:</label>
+            <select id="encryptionType" class="form-select">
+                <option value="keyless">بدون مفتاح (SHA-1)</option>
+                <option value="cbc" selected>مفتاح واحد (CBC) - مفتاح مولد تلقائياً بواسطة LCG</option>
+            </select>
+        </div>
+
+        <div class="row">
+            <div class="col-md-5">
+                <div class="encryption-card">
+                    <div class="encryption-card-header">
+                        النص العادي
+                    </div>
+                    <div class="encryption-card-body">
+                        <div class="textarea-wrapper">
+                            <textarea id="plainText" class="form-control" rows="5" placeholder="أدخل النص المراد تشفيره هنا..."></textarea>
+                            <button class="copy-btn" id="copyPlainText" title="نسخ النص"><i class="fas fa-copy"></i></button>
+                        </div>
+                        <button id="encryptBtn" class="btn btn-encryption w-100">
+                            <span class="loader" id="encryptLoader"></span>
+                            <i class="fas fa-lock"></i> تشفير النص
+                        </button>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <ul>
-                        <li>تم استخدام خوارزمية تشفير متماثلة (Symmetric Encryption)</li>
-                        <li>طريقة التشفير: CBC (Cipher Block Chaining)</li>
-                        <li>مولد المفتاح: Linear Congruential Generator (LCG)</li>
-                        <li>حجم المفتاح: 16 بايت (128 بت)</li>
-                        <li>يتم اشتقاق متجه التهيئة IV من Seed</li>
-                    </ul>
+            </div>
+
+            <div class="col-md-2 d-flex align-items-center justify-content-center">
+                <div class="btn-swap" id="swapBtn">
+                    <i class="fas fa-exchange-alt"></i>
+                </div>
+            </div>
+
+            <div class="col-md-5">
+                <div class="encryption-card">
+                    <div class="encryption-card-header">
+                        النص المشفر
+                    </div>
+                    <div class="encryption-card-body">
+                        <div class="textarea-wrapper">
+                            <textarea id="cipherText" class="form-control" rows="5" placeholder="النص المشفر سيظهر هنا..."></textarea>
+                            <button class="copy-btn" id="copyCipherText" title="نسخ النص"><i class="fas fa-copy"></i></button>
+                        </div>
+                        <button id="decryptBtn" class="btn btn-encryption w-100">
+                            <span class="loader" id="decryptLoader"></span>
+                            <i class="fas fa-unlock"></i> فك تشفير النص
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
+
+        <div id="keySection" class="mt-4">
+            <div class="encryption-card">
+                <div class="encryption-card-header">
+                    المفاتيح المولدة تلقائياً
+                </div>
+                <div class="encryption-card-body">
+                    <div class="key-field">
+                        <label for="generatedKey">المفتاح (Key):</label>
+                        <div class="input-group">
+                            <input type="text" id="generatedKey" class="form-control" readonly />
+                            <button class="btn btn-outline-secondary" type="button" id="copyKeyBtn">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="key-field">
+                        <label for="generatedIV">متجه التهيئة (IV):</label>
+                        <div class="input-group">
+                            <input type="text" id="generatedIV" class="form-control" readonly />
+                            <button class="btn btn-outline-secondary" type="button" id="copyIVBtn">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="alert alert-info mt-3">
+                        <i class="fas fa-info-circle"></i> يرجى حفظ هذه المفاتيح لاستخدامها لاحقاً في عملية فك التشفير.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="alert alert-danger mt-3" id="errorMessage" style="display: none;"></div>
     </div>
 </div>
+
+<div class="notification" id="notification">
+    <span id="notificationText"></span>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // إخفاء أو إظهار قسم المفاتيح حسب نوع التشفير المختار
+            $("#encryptionType").change(function() {
+                if ($(this).val() === "keyless") {
+                    $("#keySection").slideUp();
+                    $("#decryptBtn").prop('disabled', true).css('opacity', 0.6);
+                } else {
+                    $("#keySection").slideDown();
+                    $("#decryptBtn").prop('disabled', false).css('opacity', 1);
+                }
+            });
+
+            // معالجة زر التشفير
+            $("#encryptBtn").click(function() {
+                var plainText = $("#plainText").val();
+                if (!plainText) {
+                    showError("الرجاء إدخال النص المراد تشفيره");
+                    return;
+                }
+
+                var encryptionType = $("#encryptionType").val();
+
+                // إظهار مؤشر التحميل
+                $("#encryptLoader").show();
+
+                if (encryptionType === "keyless") {
+                    // SHA-1
+                    $.ajax({
+                        type: "POST",
+                        url: "/Encryption/EncryptSHA1",
+                        data: { plainText: plainText },
+                        success: function(response) {
+                            $("#encryptLoader").hide();
+                            if (response.error) {
+                                showError(response.error);
+                            } else {
+                                $("#cipherText").val(response.hashText);
+                                hideError();
+                                showNotification("تم التشفير بنجاح!");
+                            }
+                        },
+                        error: function() {
+                            $("#encryptLoader").hide();
+                            showError("حدث خطأ أثناء التشفير");
+                        }
+                    });
+                } else {
+                    // CBC
+                    $.ajax({
+                        type: "POST",
+                        url: "/Encryption/EncryptCBC",
+                        data: { plainText: plainText },
+                        success: function(response) {
+                            $("#encryptLoader").hide();
+                            if (response.error) {
+                                showError(response.error);
+                            } else {
+                                $("#cipherText").val(response.cipherText);
+                                $("#generatedKey").val(response.generatedKey);
+                                $("#generatedIV").val(response.generatedIV);
+                                hideError();
+                                showNotification("تم التشفير بنجاح!");
+                            }
+                        },
+                        error: function() {
+                            $("#encryptLoader").hide();
+                            showError("حدث خطأ أثناء التشفير");
+                        }
+                    });
+                }
+            });
+
+            // معالجة زر فك التشفير
+            $("#decryptBtn").click(function() {
+                var cipherText = $("#cipherText").val();
+                if (!cipherText) {
+                    showError("الرجاء إدخال النص المشفر");
+                    return;
+                }
+
+                var encryptionType = $("#encryptionType").val();
+
+                if (encryptionType === "keyless") {
+                    showError("لا يمكن فك تشفير SHA-1 لأنه تشفير أحادي الاتجاه");
+                } else {
+                    var key = $("#generatedKey").val();
+                    var iv = $("#generatedIV").val();
+
+                    if (!key || !iv) {
+                        showError("الرجاء التأكد من وجود المفتاح ومتجه التهيئة");
+                        return;
+                    }
+
+                    // إظهار مؤشر التحميل
+                    $("#decryptLoader").show();
+
+                    $.ajax({
+                        type: "POST",
+                        url: "/Encryption/DecryptCBC",
+                        data: {
+                            cipherText: cipherText,
+                            keyBase64: key,
+                            ivBase64: iv
+                        },
+                        success: function(response) {
+                            $("#decryptLoader").hide();
+                            if (response.error) {
+                                showError(response.error);
+                            } else {
+                                $("#plainText").val(response.plainText);
+                                hideError();
+                                showNotification("تم فك التشفير بنجاح!");
+                            }
+                        },
+                        error: function() {
+                            $("#decryptLoader").hide();
+                            showError("حدث خطأ أثناء فك التشفير");
+                        }
+                    });
+                }
+            });
+
+            // زر تبديل النصوص
+            $("#swapBtn").click(function() {
+                var plainText = $("#plainText").val();
+                var cipherText = $("#cipherText").val();
+
+                $("#plainText").val(cipherText);
+                $("#cipherText").val(plainText);
+            });
+
+            // وظائف نسخ النصوص
+            $("#copyPlainText").click(function() {
+                copyToClipboard("#plainText", "تم نسخ النص العادي");
+            });
+
+            $("#copyCipherText").click(function() {
+                copyToClipboard("#cipherText", "تم نسخ النص المشفر");
+            });
+
+            $("#copyKeyBtn").click(function() {
+                copyToClipboard("#generatedKey", "تم نسخ المفتاح");
+            });
+
+            $("#copyIVBtn").click(function() {
+                copyToClipboard("#generatedIV", "تم نسخ متجه التهيئة");
+            });
+
+            function copyToClipboard(elementId, message) {
+                var copyText = $(elementId);
+                copyText.select();
+                document.execCommand("copy");
+                showNotification(message);
+            }
+
+            function showError(message) {
+                $("#errorMessage").text(message).slideDown();
+            }
+
+            function hideError() {
+                $("#errorMessage").slideUp();
+            }
+
+            function showNotification(message) {
+                $("#notificationText").text(message);
+                $("#notification").addClass("show");
+                setTimeout(function() {
+                    $("#notification").removeClass("show");
+                }, 2000);
+            }
+
+            // تهيئة الواجهة
+            if ($("#encryptionType").val() === "keyless") {
+                $("#keySection").hide();
+                $("#decryptBtn").prop('disabled', true).css('opacity', 0.6);
+            }
+        });
+    </script>
+}

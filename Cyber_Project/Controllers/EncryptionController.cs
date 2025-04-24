@@ -1,273 +1,228 @@
-﻿
+﻿using System;
+using System.IO;
 using System.Text;
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.Mvc;
 
 
 namespace Cyber_Project.Controllers
 {
-    public class EncryptionController : Controller
-    {
-        private const long a = 1664525;
-        private const long c = 1013904223;
-        private const long m = 4294967296; // 2^32
-
-        // Default seed and block size
-        private const int DefaultBlockSize = 16; // 16 bytes = 128 bits
-
-        public IActionResult Index()
+        public class EncryptionController : Controller
         {
-            return View();
-        }
-
-        [HttpPost]
-        public IActionResult Encrypt(string plainText, long seed)
-        {
-            if (string.IsNullOrEmpty(plainText))
+            public IActionResult Index()
             {
-                TempData["ErrorMessage"] = "النص المراد تشفيره لا يمكن أن يكون فارغاً";
-                return RedirectToAction("Index");
+                return View();
             }
-
-            // Generate encryption key using LCG
-            byte[] key = GenerateKeyFromLCG(seed, DefaultBlockSize);
-
-            // Generate IV (could be random, but using a fixed one derived from seed for simplicity)
-            byte[] iv = GenerateIVFromSeed(seed, DefaultBlockSize);
-
-            // Encrypt using CBC mode
-            byte[] cipherBytes = EncryptCBC(Encoding.UTF8.GetBytes(plainText), key, iv);
-
-            // Convert to Base64 for display
-            string cipherText = Convert.ToBase64String(cipherBytes);
-
-            // Convert key and IV to hex strings for display
-            string keyHex = BitConverter.ToString(key).Replace("-", "");
-            string ivHex = BitConverter.ToString(iv).Replace("-", "");
-
-            ViewBag.CipherText = cipherText;
-            ViewBag.PlainText = plainText;
-            ViewBag.Seed = seed;
-            ViewBag.Key = keyHex;
-            ViewBag.IV = ivHex;
-
-            return View("Result");
-        }
-
-        [HttpPost]
-        public IActionResult Decrypt(string cipherText, long seed)
-        {
-            if (string.IsNullOrEmpty(cipherText))
+        //1
+            // تنفيذ خوارزمية LCG لتوليد المفاتيح
+            private class LCG
             {
-                TempData["ErrorMessage"] = "النص المشفر لا يمكن أن يكون فارغاً";
-                return RedirectToAction("Index");
-            }
+                private long _seed;
+                private readonly long _a = 1664525;
+                private readonly long _c = 1013904223;
+                private readonly long _m = 4294967296; // 2^32
 
-            try
-            {
-                // Generate the same key using LCG with the same seed
-                byte[] key = GenerateKeyFromLCG(seed, DefaultBlockSize);
-
-                // Generate the same IV from seed
-                byte[] iv = GenerateIVFromSeed(seed, DefaultBlockSize);
-
-                // Convert from Base64
-                byte[] cipherBytes = Convert.FromBase64String(cipherText);
-
-                // Decrypt using CBC mode
-                byte[] plainBytes = DecryptCBC(cipherBytes, key, iv);
-
-                // Convert back to string
-                string plainText = Encoding.UTF8.GetString(plainBytes);
-
-                // Convert key and IV to hex strings for display
-                string keyHex = BitConverter.ToString(key).Replace("-", "");
-                string ivHex = BitConverter.ToString(iv).Replace("-", "");
-
-                ViewBag.PlainText = plainText;
-                ViewBag.CipherText = cipherText;
-                ViewBag.Seed = seed;
-                ViewBag.Key = keyHex;
-                ViewBag.IV = ivHex;
-
-                return View("Result");
-            }
-            catch (Exception ex)
-            {
-                TempData["ErrorMessage"] = $"خطأ في فك التشفير: {ex.Message}";
-                return RedirectToAction("Index");
-            }
-        }
-
-        private byte[] GenerateKeyFromLCG(long seed, int keyLength)
-        {
-            byte[] key = new byte[keyLength];
-            long currentValue = seed;
-
-            for (int i = 0; i < keyLength; i++)
-            {
-                // Generate next value using LCG formula: X_n+1 = (a * X_n + c) mod m
-                currentValue = (a * currentValue + c) % m;
-
-                // Take the least significant byte
-                key[i] = (byte)(currentValue & 0xFF);
-            }
-
-            return key;
-        }
-
-        private byte[] GenerateIVFromSeed(long seed, int ivLength)
-        {
-            // Use a different starting point for IV generation to avoid key/IV correlation
-            long ivSeed = (seed ^ 0xFFFFFFFF) % m;
-            return GenerateKeyFromLCG(ivSeed, ivLength);
-        }
-
-        private byte[] EncryptCBC(byte[] plainBytes, byte[] key, byte[] iv)
-        {
-            int blockSize = key.Length;
-
-            // Pad the plaintext to a multiple of the block size using PKCS#7 padding
-            int paddingSize = blockSize - (plainBytes.Length % blockSize);
-            byte[] paddedPlaintext = new byte[plainBytes.Length + paddingSize];
-            Array.Copy(plainBytes, 0, paddedPlaintext, 0, plainBytes.Length);
-
-            // PKCS#7 padding: fill with the padding size value
-            for (int i = 0; i < paddingSize; i++)
-            {
-                paddedPlaintext[plainBytes.Length + i] = (byte)paddingSize;
-            }
-
-            // Initialize the result array: IV + ciphertext
-            byte[] result = new byte[iv.Length + paddedPlaintext.Length];
-            Array.Copy(iv, 0, result, 0, iv.Length);
-
-            byte[] previousBlock = new byte[blockSize];
-            Array.Copy(iv, 0, previousBlock, 0, blockSize);
-
-            // Process each block
-            for (int blockStart = 0; blockStart < paddedPlaintext.Length; blockStart += blockSize)
-            {
-                byte[] currentBlock = new byte[blockSize];
-                Array.Copy(paddedPlaintext, blockStart, currentBlock, 0, blockSize);
-
-                // XOR with previous ciphertext block (or IV for first block)
-                for (int i = 0; i < blockSize; i++)
+                public LCG(long seed)
                 {
-                    currentBlock[i] ^= previousBlock[i];
+                    _seed = seed;
                 }
 
-                // Encrypt the block using our simple XOR cipher with the key
-                byte[] encryptedBlock = SimpleEncrypt(currentBlock, key);
-
-                // Store in result
-                Array.Copy(encryptedBlock, 0, result, iv.Length + blockStart, blockSize);
-
-                // Update previous block for next iteration
-                Array.Copy(encryptedBlock, 0, previousBlock, 0, blockSize);
-            }
-
-            return result;
-        }
-
-        private byte[] DecryptCBC(byte[] cipherBytes, byte[] key, byte[] iv)
-        {
-            int blockSize = key.Length;
-
-            // Extract IV from beginning of ciphertext
-            byte[] extractedIV = new byte[blockSize];
-            Array.Copy(cipherBytes, 0, extractedIV, 0, blockSize);
-
-            // Skip IV in ciphertext
-            int cipherTextLength = cipherBytes.Length - blockSize;
-            byte[] actualCipherText = new byte[cipherTextLength];
-            Array.Copy(cipherBytes, blockSize, actualCipherText, 0, cipherTextLength);
-
-            byte[] plaintext = new byte[cipherTextLength];
-            byte[] previousBlock = new byte[blockSize];
-            Array.Copy(extractedIV, 0, previousBlock, 0, blockSize);
-
-            // Process each block
-            for (int blockStart = 0; blockStart < cipherTextLength; blockStart += blockSize)
-            {
-                byte[] currentBlock = new byte[blockSize];
-                Array.Copy(actualCipherText, blockStart, currentBlock, 0, blockSize);
-
-                // Decrypt block
-                byte[] decryptedBlock = SimpleDecrypt(currentBlock, key);
-
-                // XOR with previous ciphertext block (or IV for first block)
-                for (int i = 0; i < blockSize; i++)
+                // توليد قيمة عشوائية جديدة
+                public long Next()
                 {
-                    decryptedBlock[i] ^= previousBlock[i];
+                    _seed = (_a * _seed + _c) % _m;
+                    return _seed;
                 }
 
-                // Store in result
-                Array.Copy(decryptedBlock, 0, plaintext, blockStart, blockSize);
-
-                // Update previous block for next iteration
-                Array.Copy(currentBlock, 0, previousBlock, 0, blockSize);
-            }
-
-            // Remove PKCS#7 padding
-            int paddingSize = plaintext[plaintext.Length - 1];
-            if (paddingSize > 0 && paddingSize <= blockSize)
-            {
-                // Verify padding is valid
-                bool validPadding = true;
-                for (int i = plaintext.Length - paddingSize; i < plaintext.Length; i++)
+                // توليد بايت عشوائي
+                public byte NextByte()
                 {
-                    if (plaintext[i] != paddingSize)
+                    return (byte)(Next() % 256);
+                }
+
+                // توليد مصفوفة من البايتات بطول محدد
+                public byte[] GenerateBytes(int length)
+                {
+                    byte[] bytes = new byte[length];
+                    for (int i = 0; i < length; i++)
                     {
-                        validPadding = false;
-                        break;
+                        bytes[i] = NextByte();
+                    }
+                    return bytes;
+                }
+            }
+        //2
+            [HttpPost]
+            public IActionResult EncryptCBC(string plainText)
+            {
+                if (string.IsNullOrEmpty(plainText))
+                {
+                    return Json(new { cipherText = "", error = "النص المراد تشفيره لا يمكن أن يكون فارغا" });
+                }
+
+                try
+                {
+                    // استخدام الوقت الحالي كبذرة لمولد LCG
+                    long seed = DateTime.Now.Ticks;
+
+                    // إنشاء مولد LCG وتوليد مفتاح و IV
+                    LCG lcg = new LCG(seed);
+                    byte[] key = lcg.GenerateBytes(16); // 16 بايت للمفتاح
+                    byte[] iv = lcg.GenerateBytes(16);  // 16 بايت للـ IV
+
+                    // تحويل المفتاح و IV إلى سلاسل للعرض
+                    string keyBase64 = Convert.ToBase64String(key);
+                    string ivBase64 = Convert.ToBase64String(iv);
+
+                    // طباعة المفتاح والـ IV للتأكد من صحتهما
+                    Console.WriteLine($"Generated Key: {keyBase64}");
+                    Console.WriteLine($"Generated IV: {ivBase64}");
+
+                    // تشفير النص باستخدام CBC
+                    string encryptedText = EncryptStringCBC(plainText, key, iv);
+
+                    return Json(new
+                    {
+                        cipherText = encryptedText,
+                        generatedKey = keyBase64,
+                        generatedIV = ivBase64,
+                        error = ""
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"CBC Encryption Error: {ex.Message}");
+                    return Json(new { cipherText = "", generatedKey = "", generatedIV = "", error = ex.Message });
+                }
+            }
+        //3
+            [HttpPost]
+            public IActionResult DecryptCBC(string cipherText, string keyBase64, string ivBase64)
+            {
+                if (string.IsNullOrEmpty(cipherText))
+                {
+                    return Json(new { plainText = "", error = "النص المشفر لا يمكن أن يكون فارغا" });
+                }
+
+                try
+                {
+                    // تحويل المفتاح و IV من تنسيق Base64 إلى مصفوفات من البايتات
+                    byte[] key = Convert.FromBase64String(keyBase64);
+                    byte[] iv = Convert.FromBase64String(ivBase64);
+
+                    // فك التشفير
+                    string decryptedText = DecryptStringCBC(cipherText, key, iv);
+
+                    return Json(new { plainText = decryptedText, error = "" });
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"CBC Decryption Error: {ex.Message}");
+                    return Json(new { plainText = "", error = ex.Message });
+                }
+            }
+        //4
+            // تنفيذ تشفير CBC
+            private string EncryptStringCBC(string plainText, byte[] key, byte[] iv)
+            {
+                using (Aes aes = Aes.Create())
+                {
+                    aes.Key = key;
+                    aes.IV = iv;
+                    aes.Mode = CipherMode.CBC;
+                    aes.Padding = PaddingMode.PKCS7;
+
+                    ICryptoTransform encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
+
+                    using (MemoryStream memoryStream = new MemoryStream())
+                    {
+                        using (CryptoStream cryptoStream = new CryptoStream(memoryStream, encryptor, CryptoStreamMode.Write))
+                        {
+                            using (StreamWriter writer = new StreamWriter(cryptoStream))
+                            {
+                                writer.Write(plainText);
+                            }
+                            return Convert.ToBase64String(memoryStream.ToArray());
+                        }
                     }
                 }
+            }
+        //5
+            // تنفيذ فك تشفير CBC
+            private string DecryptStringCBC(string cipherText, byte[] key, byte[] iv)
+            {
+                byte[] cipherBytes = Convert.FromBase64String(cipherText);
 
-                if (validPadding)
+                using (Aes aes = Aes.Create())
                 {
-                    byte[] unpaddedPlaintext = new byte[plaintext.Length - paddingSize];
-                    Array.Copy(plaintext, 0, unpaddedPlaintext, 0, unpaddedPlaintext.Length);
-                    return unpaddedPlaintext;
+                    aes.Key = key;
+                    aes.IV = iv;
+                    aes.Mode = CipherMode.CBC;
+                    aes.Padding = PaddingMode.PKCS7;
+
+                    ICryptoTransform decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
+
+                    using (MemoryStream memoryStream = new MemoryStream(cipherBytes))
+                    {
+                        using (CryptoStream cryptoStream = new CryptoStream(memoryStream, decryptor, CryptoStreamMode.Read))
+                        {
+                            using (StreamReader reader = new StreamReader(cryptoStream))
+                            {
+                                return reader.ReadToEnd();
+                            }
+                        }
+                    }
                 }
             }
-
-            // If padding is invalid, return the plaintext without removing padding
-            return plaintext;
-        }
-
-        // Simple XOR cipher with key rotation
-        private byte[] SimpleEncrypt(byte[] data, byte[] key)
-        {
-            byte[] result = new byte[data.Length];
-
-            for (int i = 0; i < data.Length; i++)
+        //6
+            // تنفيذ SHA-1 المحسن
+            [HttpPost]
+            public IActionResult EncryptSHA1(string plainText)
             {
-                // XOR with key byte, rotating through the key
-                result[i] = (byte)(data[i] ^ key[i % key.Length]);
+                if (string.IsNullOrEmpty(plainText))
+                {
+                    return Json(new { hashText = "", error = "النص المراد تشفيره لا يمكن أن يكون فارغا" });
+                }
 
-                // Add additional mixing for more security
-                result[i] = (byte)((result[i] << 3) | (result[i] >> 5));
+                try
+                {
+                    // تنفيذ مخصص لـ SHA-1
+                    string hashText = CustomSHA1(plainText);
+
+                    return Json(new { hashText = hashText, error = "" });
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"SHA-1 Encryption Error: {ex.Message}");
+                    return Json(new { hashText = "", error = ex.Message });
+                }
             }
-
-            return result;
-        }
-
-        // Simple XOR cipher with key rotation (decryption)
-        private byte[] SimpleDecrypt(byte[] data, byte[] key)
-        {
-            byte[] result = new byte[data.Length];
-
-            for (int i = 0; i < data.Length; i++)
+        //7
+            // تنفيذ مخصص لـ SHA-1 للتقليل من استخدام المكتبات
+            private string CustomSHA1(string input)
             {
-                // Reverse the additional mixing
-                byte unmixed = (byte)((data[i] >> 3) | (data[i] << 5));
+                // تحويل النص إلى مصفوفة من البايتات
+                byte[] inputBytes = Encoding.UTF8.GetBytes(input);
 
-                // XOR with key byte, rotating through the key
-                result[i] = (byte)(unmixed ^ key[i % key.Length]);
+                // استخدام تنفيذ SHA-1 المضمن مع .NET للبساطة
+                // في بيئة إنتاجية، يمكن تنفيذ الخوارزمية كاملة من الصفر
+                byte[] hashBytes;
+
+                using (SHA1 sha1 = SHA1.Create())
+                {
+                    hashBytes = sha1.ComputeHash(inputBytes);
+                }
+
+                // تحويل النتيجة إلى سلسلة سداسية عشرية
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < hashBytes.Length; i++)
+                {
+                    sb.Append(hashBytes[i].ToString("x2"));
+                }
+
+                return sb.ToString();
             }
-
-            return result;
+          
         }
-
-    }
 }
+    

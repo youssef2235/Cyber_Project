@@ -1,0 +1,202 @@
+﻿
+body {
+    background-color: #f8f9fa;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.encryption-container {
+    max-width: 1000px;
+    margin: 30px auto;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.header {
+    background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
+    color: #fff;
+    padding: 20px;
+    text-align: center;
+    border-radius: 10px 10px 0 0;
+}
+
+.content {
+    padding: 25px;
+}
+
+.form-control:focus {
+    border-color: #4b6cb7;
+    box-shadow: 0 0 0 0.25rem rgba(75, 108, 183, 0.25);
+}
+
+.btn-encryption {
+    background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
+    color: white;
+    border: none;
+    transition: all 0.3s ease;
+}
+
+    .btn-encryption:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        background: linear-gradient(135deg, #5d7ec9 0%, #293f6e 100%);
+    }
+
+.form-select {
+    border-radius: 5px;
+    height: 45px;
+}
+
+.textarea-wrapper {
+    position: relative;
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+    .textarea-wrapper textarea {
+        flex-grow: 1;
+        padding: 10px;
+    }
+
+.copy-btn {
+    position: static;
+    border: 1px solid #e0e0e0;
+    border-radius: 3px;
+    padding: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    height: 40px;
+    width: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f8f9fa;
+}
+
+    .copy-btn:hover {
+        background-color: #e9ecef;
+        border-color: #4b6cb7;
+    }
+
+.encryption-card {
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+    margin-bottom: 20px;
+    border: 1px solid #e0e0e0;
+}
+
+.encryption-card-header {
+    background-color: #f7f7f7;
+    padding: 15px;
+    border-bottom: 1px solid #e0e0e0;
+    border-radius: 10px 10px 0 0;
+    font-weight: bold;
+}
+
+.encryption-card-body {
+    padding: 20px;
+}
+
+.key-field {
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #e0e0e0;
+}
+
+    .key-field label {
+        margin-bottom: 5px;
+        display: block;
+        color: #4b6cb7;
+        font-weight: 500;
+    }
+
+.info-badge {
+    background-color: #4b6cb7;
+    color: white;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    margin-left: 10px;
+}
+
+.algorithm-info {
+    background-color: #e9ecef;
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+}
+
+.loader {
+    display: none;
+    border: 3px solid #f3f3f3;
+    border-radius: 50%;
+    border-top: 3px solid #4b6cb7;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+    margin-right: 10px;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 15px 20px;
+    background-color: #4CAF50;
+    color: #fff;
+    border-radius: 5px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-100px);
+    opacity: 0;
+    transition: all 0.3s ease;
+    z-index: 1000;
+}
+
+    .notification.show {
+        transform: translateY(0);
+        opacity: 1;
+    }
+
+.btn-swap {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #4b6cb7;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin: 0 auto;
+}
+
+    .btn-swap:hover {
+        transform: rotate(180deg);
+        background: #182848;
+    }
+
+/* RTL Support */
+.rtl {
+    direction: rtl;
+    text-align: right;
+}
+
+

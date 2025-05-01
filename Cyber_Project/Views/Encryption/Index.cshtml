@@ -9,7 +9,7 @@
 <div class="encryption-container">
     <div class="header">
         <h1><i class="fas fa-lock"></i> نظام التشفير المتقدم</h1>
-        <p>تشفير وفك تشفير النصوص باستخدام CBC و SHA-1 مع توليد مفاتيح LCG</p>
+        <p>تشفير وفك تشفير النصوص باستخدام CBC و RSA و SHA-1 مع توليد مفاتيح LCG</p>
     </div>
 
     <div class="content rtl">
@@ -17,6 +17,7 @@
             <div class="mb-2"><strong>حول الخوارزميات المستخدمة:</strong></div>
             <div><span class="info-badge">SHA-1</span> خوارزمية تشفير أحادية الاتجاه تنتج قيمة هاش بطول 160 بت (غير قابلة لفك التشفير)</div>
             <div><span class="info-badge">CBC</span> وضع تشغيل لخوارزمية تشفير متماثلة مع توليد مفتاح باستخدام LCG</div>
+            <div><span class="info-badge">RSA</span> خوارزمية تشفير لا متماثلة تستخدم زوج من المفاتيح (عام وخاص)</div>
             <div><span class="info-badge">LCG</span> مولد خطي متكرر يستخدم لتوليد المفاتيح التلقائية</div>
         </div>
 
@@ -25,6 +26,7 @@
             <select id="encryptionType" class="form-select">
                 <option value="keyless">بدون مفتاح (SHA-1)</option>
                 <option value="cbc" selected>مفتاح واحد (CBC) - مفتاح مولد تلقائياً بواسطة LCG</option>
+                <option value="rsa">مفتاح مزدوج (RSA) - مفتاح عام ومفتاح خاص</option>
             </select>
         </div>
 
@@ -103,6 +105,42 @@
             </div>
         </div>
 
+        <div id="rsaKeySection" class="mt-4" style="display: none;">
+            <div class="encryption-card">
+                <div class="encryption-card-header">
+                    مفاتيح RSA
+                </div>
+                <div class="encryption-card-body">
+                    <button id="generateRSAKeysBtn" class="btn btn-encryption mb-3">
+                        <span class="loader" id="generateRSAKeysLoader"></span>
+                        <i class="fas fa-key"></i> توليد زوج مفاتيح RSA جديد
+                    </button>
+
+                    <div class="key-field">
+                        <label for="publicKey">المفتاح العام (Public Key):</label>
+                        <div class="input-group">
+                            <input type="text" id="publicKey" class="form-control" />
+                            <button class="btn btn-outline-secondary" type="button" id="copyPublicKeyBtn">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="key-field">
+                        <label for="privateKey">المفتاح الخاص (Private Key):</label>
+                        <div class="input-group">
+                            <input type="text" id="privateKey" class="form-control" />
+                            <button class="btn btn-outline-secondary" type="button" id="copyPrivateKeyBtn">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="alert alert-warning mt-3">
+                        <i class="fas fa-exclamation-triangle"></i> تحذير: احتفظ بالمفتاح الخاص في مكان آمن ولا تشاركه مع أحد. استخدم المفتاح العام فقط للتشفير.
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="alert alert-danger mt-3" id="errorMessage" style="display: none;"></div>
     </div>
 </div>
@@ -116,13 +154,46 @@
         $(document).ready(function() {
             // إخفاء أو إظهار قسم المفاتيح حسب نوع التشفير المختار
             $("#encryptionType").change(function() {
-                if ($(this).val() === "keyless") {
+                var encType = $(this).val();
+                if (encType === "keyless") {
                     $("#keySection").slideUp();
+                    $("#rsaKeySection").slideUp();
                     $("#decryptBtn").prop('disabled', true).css('opacity', 0.6);
-                } else {
+                } else if (encType === "cbc") {
                     $("#keySection").slideDown();
+                    $("#rsaKeySection").slideUp();
+                    $("#decryptBtn").prop('disabled', false).css('opacity', 1);
+                } else if (encType === "rsa") {
+                    $("#keySection").slideUp();
+                    $("#rsaKeySection").slideDown();
                     $("#decryptBtn").prop('disabled', false).css('opacity', 1);
                 }
+            });
+
+            // معالجة زر توليد مفاتيح RSA
+            $("#generateRSAKeysBtn").click(function() {
+                // إظهار مؤشر التحميل
+                $("#generateRSAKeysLoader").show();
+
+                $.ajax({
+                    type: "POST",
+                    url: "/Encryption/GenerateRSAKeys",
+                    success: function(response) {
+                        $("#generateRSAKeysLoader").hide();
+                        if (response.error) {
+                            showError(response.error);
+                        } else {
+                            $("#publicKey").val(response.publicKey);
+                            $("#privateKey").val(response.privateKey);
+                            hideError();
+                            showNotification("تم توليد مفاتيح RSA بنجاح!");
+                        }
+                    },
+                    error: function() {
+                        $("#generateRSAKeysLoader").hide();
+                        showError("حدث خطأ أثناء توليد مفاتيح RSA");
+                    }
+                });
             });
 
             // معالجة زر التشفير
@@ -159,7 +230,7 @@
                             showError("حدث خطأ أثناء التشفير");
                         }
                     });
-                } else {
+                } else if (encryptionType === "cbc") {
                     // CBC
                     $.ajax({
                         type: "POST",
@@ -173,6 +244,37 @@
                                 $("#cipherText").val(response.cipherText);
                                 $("#generatedKey").val(response.generatedKey);
                                 $("#generatedIV").val(response.generatedIV);
+                                hideError();
+                                showNotification("تم التشفير بنجاح!");
+                            }
+                        },
+                        error: function() {
+                            $("#encryptLoader").hide();
+                            showError("حدث خطأ أثناء التشفير");
+                        }
+                    });
+                } else if (encryptionType === "rsa") {
+                    // RSA
+                    var publicKey = $("#publicKey").val();
+                    if (!publicKey) {
+                        $("#encryptLoader").hide();
+                        showError("الرجاء توليد مفاتيح RSA أو إدخال المفتاح العام");
+                        return;
+                    }
+
+                    $.ajax({
+                        type: "POST",
+                        url: "/Encryption/EncryptRSAText",
+                        data: {
+                            plainText: plainText,
+                            publicKey: publicKey
+                        },
+                        success: function(response) {
+                            $("#encryptLoader").hide();
+                            if (response.error) {
+                                showError(response.error);
+                            } else {
+                                $("#cipherText").val(response.cipherText);
                                 hideError();
                                 showNotification("تم التشفير بنجاح!");
                             }
@@ -197,7 +299,7 @@
 
                 if (encryptionType === "keyless") {
                     showError("لا يمكن فك تشفير SHA-1 لأنه تشفير أحادي الاتجاه");
-                } else {
+                } else if (encryptionType === "cbc") {
                     var key = $("#generatedKey").val();
                     var iv = $("#generatedIV").val();
 
@@ -216,6 +318,39 @@
                             cipherText: cipherText,
                             keyBase64: key,
                             ivBase64: iv
+                        },
+                        success: function(response) {
+                            $("#decryptLoader").hide();
+                            if (response.error) {
+                                showError(response.error);
+                            } else {
+                                $("#plainText").val(response.plainText);
+                                hideError();
+                                showNotification("تم فك التشفير بنجاح!");
+                            }
+                        },
+                        error: function() {
+                            $("#decryptLoader").hide();
+                            showError("حدث خطأ أثناء فك التشفير");
+                        }
+                    });
+                } else if (encryptionType === "rsa") {
+                    var privateKey = $("#privateKey").val();
+
+                    if (!privateKey) {
+                        showError("الرجاء إدخال المفتاح الخاص لفك التشفير");
+                        return;
+                    }
+
+                    // إظهار مؤشر التحميل
+                    $("#decryptLoader").show();
+
+                    $.ajax({
+                        type: "POST",
+                        url: "/Encryption/DecryptRSAText",
+                        data: {
+                            cipherText: cipherText,
+                            privateKey: privateKey
                         },
                         success: function(response) {
                             $("#decryptLoader").hide();
@@ -261,6 +396,14 @@
                 copyToClipboard("#generatedIV", "تم نسخ متجه التهيئة");
             });
 
+            $("#copyPublicKeyBtn").click(function() {
+                copyToClipboard("#publicKey", "تم نسخ المفتاح العام");
+            });
+
+            $("#copyPrivateKeyBtn").click(function() {
+                copyToClipboard("#privateKey", "تم نسخ المفتاح الخاص");
+            });
+
             function copyToClipboard(elementId, message) {
                 var copyText = $(elementId);
                 copyText.select();
@@ -287,7 +430,12 @@
             // تهيئة الواجهة
             if ($("#encryptionType").val() === "keyless") {
                 $("#keySection").hide();
+                $("#rsaKeySection").hide();
                 $("#decryptBtn").prop('disabled', true).css('opacity', 0.6);
+            } else if ($("#encryptionType").val() === "cbc") {
+                $("#rsaKeySection").hide();
+            } else if ($("#encryptionType").val() === "rsa") {
+                $("#keySection").hide();
             }
         });
     </script>
